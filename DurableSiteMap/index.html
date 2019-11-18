@@ -1,0 +1,107 @@
+﻿<html>
+<head>
+    <meta http-equiv=content-security-policy content="upgrade-insecure-requests; block-all-mixed-content; default-src 'self'; child-src 'self'; font-src 'self'; form-action 'self'; frame-src 'self'; img-src 'self'; object-src 'none'; style-src 'self'; script-src 'self' 'unsafe-inline';">
+    <title>Aggregated Search</title>
+</head>
+<body>
+    <h1>Aggregated Search</h1>
+    <div>
+        <label for="searchText">
+            Enter Search Text:
+            <input id="searchText" name="searchText" placeholder="Enter search term here" />
+        </label>
+    </div>
+    <div>
+        <button id="btnSearch">Search</button>
+    </div>
+    <br/><hr/><br/>
+    <div id="results"><h2>No Results Yet</h2></div>
+    <script>
+        const app = () => {
+
+            const state = {
+                id: ''
+            }
+            const url = "{baseUrl}";
+            const searchText = document.getElementById("searchText");
+            const btnSearch = document.getElementById("btnSearch");
+            const divResults = document.getElementById("results");
+
+            const checkButton = () => {
+                btnSearch.disabled = searchText.value.trim().length === 0;
+            };
+
+            const error = () => {
+                searchText.value = '';
+                searchText.disabled = false;
+                divResults.innerHTML = "<h2>An error occurred.</h2>";
+                searchText.focus();
+            };
+
+            const waitForResults = () => {
+                fetch(`${url}GetResult`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ id: state.id })
+                }).then(resp => {
+                    if (!resp.ok) {
+                        error();
+                    }
+                    else {
+                        if (resp.status == 202) {
+                            setTimeout(waitForResults, 300);
+                            return;
+                        }
+                        resp.text().then(txt => {
+                            divResults.innerHTML = txt;
+                            searchText.value = '';
+                            searchText.disabled = false;
+                            searchText.focus();
+                        });
+                    }
+                }, err => {
+                        console.error(err);
+                        error();
+                });
+            };
+    
+            const doSearch = () => {
+                state.id = '';
+                const query = searchText.value.trim();
+                searchText.disabled = true;
+                btnSearch.disabled = true;
+                divResults.innerHTML = "<i>Searching...</i>";
+                try {
+                    fetch(`${url}StartSearch`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ q: query })
+                    }).then(resp => {
+                        if (!resp.ok) {
+                            error();
+                        } else {
+                            resp.text().then(txt => {
+                                state.id = txt;
+                                waitForResults();
+                            });                            
+                        }
+                    }, () => error());
+                }
+                catch (e) {
+                    console.error(e);
+                    error();
+                }
+            };
+
+            btnSearch.disabled = true;
+            btnSearch.onclick = doSearch;
+            searchText.onkeyup = checkButton;
+        }
+        setTimeout(app, 100);
+    </script>
+</body>
+</html>
